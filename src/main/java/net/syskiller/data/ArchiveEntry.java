@@ -19,7 +19,8 @@ public class ArchiveEntry {
     public ArchiveEntry(File zipLocation) throws IOException {
         ZipFile zip = new ZipFile(zipLocation);
 
-        if (zip.size() != 8) {
+        // Usually 8 and above
+        if (zip.size() < 8) {
             isNull = true;
 
             ConsoleLogger.INSTANCE.logError("This is not a valid Spotify Default Data archive...");
