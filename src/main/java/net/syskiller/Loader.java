@@ -1,16 +1,20 @@
 package net.syskiller;
 
 import net.syskiller.data.ArchiveEntry;
-import net.syskiller.data.SpotifyData;
+import net.syskiller.query.ArtistQuery;
+import net.syskiller.query.StreamQuery;
 import net.syskiller.utils.ConsoleLogger;
 import net.syskiller.utils.Settings;
 
 import java.io.File;
 import java.io.IOException;
 
+import static net.syskiller.data.ArchiveData.DATA_STREAM_HISTORY;
+
 public class Loader extends ConsoleLogger {
 
-    private boolean noGUI = false;
+    private ArtistQuery queryArtist;
+    private StreamQuery streamQuery;
 
     private Loader(String[] args) {
         super();
@@ -21,6 +25,7 @@ public class Loader extends ConsoleLogger {
         // Here we skip the parameter X for some stuff
         int index = -1;
         boolean skip = false;
+        boolean noGUI = false;
         for (String arguments : args) {
             index++;
             if (skip) {
@@ -47,7 +52,7 @@ public class Loader extends ConsoleLogger {
                     try {
                         File readFile = new File(Settings.DATAPATH + fileName);
                         if (readFile.isFile()) {
-                            Settings.DATAFOLDER = readFile;
+                            Settings.DATAFOLDER.add(readFile);
                             logInfo("Found the correct archive for Spotify Data.");
                         } else {
                             logError("No valid archive were found for Spotify Data.");
@@ -69,11 +74,13 @@ public class Loader extends ConsoleLogger {
         }
 
         ArchiveEntry data = null;
-        try {
-            data = new ArchiveEntry(Settings.DATAFOLDER);
-        } catch (IOException ex) {
-            logError("An IOException has been thrown...");
-            ex.printStackTrace();
+        for (File file : Settings.DATAFOLDER) {
+            try {
+                data = new ArchiveEntry(file);
+            } catch (IOException ex) {
+                logError("An IOException has been thrown...");
+                ex.printStackTrace();
+            }
         }
 
         if (data == null || data.isNull) {
@@ -81,13 +88,14 @@ public class Loader extends ConsoleLogger {
             return;
         } else {
             logInfo("Archive has been confirmed and validated.");
-            logInfo("Starting to organize playlist and streaming history...");
+            logInfo("Starting to analyze playlist and streaming history...");
         }
 
         // TODO: Process GUI Response...
         //       Main Thread: wait.. (wait for thread 1 and 2 to finish)
         //       Thread 1: GUI Thread
         //       Thread 2: Calculation Thread...
+        //       -> Async tasks
 
         if (!noGUI) {
             processData(data);
@@ -101,10 +109,24 @@ public class Loader extends ConsoleLogger {
     }
 
     private void initGUIProcessor() {
-
+        // OpenGL, OpenES, OpenJava?
     }
 
-    private void processData(ArchiveEntry data) {
-        new SpotifyData(data);
+    private void processData(final ArchiveEntry data) {
+        Thread thread = new Thread(() -> {
+            queryArtist = new ArtistQuery(data.readArrayObject(DATA_STREAM_HISTORY));
+            streamQuery = new StreamQuery(data.readArrayObject(DATA_STREAM_HISTORY));
+        });
+        thread.start();
+
+        while (thread.isAlive()) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException ignored) {
+            }
+        }
+
+        ConsoleLogger.logInfo("Artists Count: " + queryArtist.getResults().size());
+        ConsoleLogger.logInfo("Artists: " + queryArtist.getResults().toString());
     }
 }

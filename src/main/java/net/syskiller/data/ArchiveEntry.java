@@ -19,25 +19,20 @@ public class ArchiveEntry {
     public ArchiveEntry(File zipLocation) throws IOException {
         ZipFile zip = new ZipFile(zipLocation);
 
-        // Usually 8 and above
-        if (zip.size() < 8) {
-            isNull = true;
-
-            ConsoleLogger.INSTANCE.logError("This is not a valid Spotify Default Data archive...");
-            return;
-        }
-
         for (ArchiveData data : ArchiveData.values()) {
             ZipEntry entry = zip.getEntry(data.getFileName());
             // Find out if the entry is exists in the zip file...
             if (entry == null) {
+                if (!data.shouldBeIncluded()) {
+                    continue;
+                }
                 isNull = true;
 
-                ConsoleLogger.INSTANCE.logError("This is not a valid Spotify Default Data archive...");
+                ConsoleLogger.logError("This is not a valid Spotify Default Data archive...");
                 break;
             }
 
-            ConsoleLogger.INSTANCE.logDebug("Processing " + entry.getName(), 2);
+            ConsoleLogger.logDebug("Processing " + entry.getName(), 2);
             if (data.isJSONArray()) {
                 JSONArray JSONObject = new JSONArray(getJSONFile(zip.getInputStream(entry)));
                 archiveArray.put(entry.getName(), JSONObject);
@@ -73,7 +68,7 @@ public class ArchiveEntry {
      */
     public JSONObject readObject(ArchiveData data) {
         if (data.isJSONArray()) {
-            ConsoleLogger.INSTANCE.logError(data.getFileName() + " only can be read through readArrayObject().");
+            ConsoleLogger.logError(data.getFileName() + " only can be read through readArrayObject().");
             return null;
         }
         return archiveEntry.get(data.getFileName());
@@ -88,8 +83,8 @@ public class ArchiveEntry {
      * @return The JSONObject for the file
      */
     public JSONArray readArrayObject(ArchiveData data) {
-        if (data.isJSONArray()) {
-            ConsoleLogger.INSTANCE.logError(data.getFileName() + " only can be read through readArrayObject().");
+        if (!data.isJSONArray()) {
+            ConsoleLogger.logError(data.getFileName() + " only can be read through readObject().");
             return null;
         }
         return archiveArray.get(data.getFileName());
